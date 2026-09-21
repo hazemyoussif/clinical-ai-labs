@@ -17,11 +17,21 @@ type EvalResult = {
 
   answerCorrect: boolean;
 
-  retrievalHit: boolean | null;
+  retrievalRank: number | null;
+
+  hitAt1: boolean | null;
+
+  hitAt3: boolean | null;
+
+  recallAt3: number | null;
+
+  reciprocalRank: number | null;
 
   groundingValid: boolean;
 
   latencyMs: number;
+
+  topSimilarity: number | null;
 
   error?: string;
 };
@@ -33,6 +43,9 @@ async function evaluateCase(
 
   try {
     const result = await answerQuestion(testCase.question, testCase.trialId);
+
+    const topSimilarity =
+      result.chunks.length > 0 ? result.chunks[0]!.similarity : null;
     //grounding validation
     console.log({
       test: testCase.name,
@@ -42,11 +55,37 @@ async function evaluateCase(
 
     const latencyMs = performance.now() - startedAt;
 
-    const retrievalHit = testCase.expectedHeading
-      ? result.chunks.some(
-          (chunk) => chunk.heading === testCase.expectedHeading,
-        )
-      : null;
+    const expectedHeadings = testCase.expectedHeading;
+
+    let retrievalRank: number | null = null;
+    let hitAt1: boolean | null = null;
+    let hitAt3: boolean | null = null;
+    let recallAt3: number | null = null;
+    let reciprocalRank: number | null = null;
+
+    if (expectedHeadings && expectedHeadings.length > 0) {
+      const firstRelevantIndex = result.chunks.findIndex((chunk) =>
+        expectedHeadings.includes(chunk.heading),
+      );
+
+      retrievalRank = firstRelevantIndex === -1 ? null : firstRelevantIndex + 1;
+
+      hitAt1 = retrievalRank !== null && retrievalRank <= 1;
+
+      hitAt3 = retrievalRank !== null && retrievalRank <= 3;
+
+      reciprocalRank = retrievalRank === null ? 0 : 1 / retrievalRank;
+
+      const top3 = result.chunks.slice(0, 3);
+
+      const retrievedRelevantHeadings = new Set(
+        top3
+          .filter((chunk) => expectedHeadings.includes(chunk.heading))
+          .map((chunk) => chunk.heading),
+      );
+
+      recallAt3 = retrievedRelevantHeadings.size / expectedHeadings.length;
+    }
 
     const grounding = validateGrounding(result.answer, result.evidence);
 
@@ -59,8 +98,12 @@ async function evaluateCase(
 
       answerCorrect: result.answer.answer === testCase.expectedAnswer,
 
-      retrievalHit,
-
+      retrievalRank,
+      hitAt1,
+      hitAt3,
+      recallAt3,
+      reciprocalRank,
+      topSimilarity,
       groundingValid: grounding.valid,
 
       latencyMs,
@@ -75,8 +118,12 @@ async function evaluateCase(
 
       answerCorrect: false,
 
-      retrievalHit: null,
-
+      retrievalRank: null,
+      hitAt1: null,
+      hitAt3: null,
+      recallAt3: null,
+      reciprocalRank: null,
+      topSimilarity: null,
       groundingValid: false,
 
       latencyMs: performance.now() - startedAt,
@@ -107,11 +154,18 @@ async function main() {
 
       answer: result.answerCorrect ? "✓" : "✗",
 
-      retrieval:
-        result.retrievalHit === null ? "-" : result.retrievalHit ? "✓" : "✗",
+      rank:
+        result.reciprocalRank === null ? "-" : (result.retrievalRank ?? "miss"),
 
-      grounded: result.groundingValid ? "✓" : "✗",
+      "hit@1": result.hitAt1 === null ? "-" : result.hitAt1 ? "✓" : "✗",
 
+      "hit@3": result.hitAt3 === null ? "-" : result.hitAt3 ? "✓" : "✗",
+
+      "recall@3": result.recallAt3 === null ? "-" : result.recallAt3.toFixed(2),
+
+      cited: result.groundingValid ? "✓" : "✗",
+      similarity:
+        result.topSimilarity === null ? "-" : result.topSimilarity.toFixed(3),
       ms: Math.round(result.latencyMs),
     })),
   );
@@ -124,16 +178,35 @@ async function main() {
   const answerAccuracy = correctAnswers / results.length;
 
   //  Retrieval
-  const retrievalCases = results.filter(
-    (result) => result.retrievalHit !== null,
-  );
+  const retrievalCases = results.filter((result) => result.hitAt3 !== null);
 
-  const retrievalHits = retrievalCases.filter(
-    (result) => result.retrievalHit,
-  ).length;
+  const hitAt1Rate =
+    retrievalCases.length > 0
+      ? retrievalCases.filter((result) => result.hitAt1).length /
+        retrievalCases.length
+      : 0;
 
-  const retrievalHitRate =
-    retrievalCases.length > 0 ? retrievalHits / retrievalCases.length : 0;
+  const hitAt3Rate =
+    retrievalCases.length > 0
+      ? retrievalCases.filter((result) => result.hitAt3).length /
+        retrievalCases.length
+      : 0;
+
+  const meanRecallAt3 =
+    retrievalCases.length > 0
+      ? retrievalCases.reduce(
+          (sum, result) => sum + (result.recallAt3 ?? 0),
+          0,
+        ) / retrievalCases.length
+      : 0;
+
+  const mrr =
+    retrievalCases.length > 0
+      ? retrievalCases.reduce(
+          (sum, result) => sum + (result.reciprocalRank ?? 0),
+          0,
+        ) / retrievalCases.length
+      : 0;
 
   // Grounding
   const groundingPasses = results.filter(
@@ -162,11 +235,21 @@ async function main() {
 
   console.log(`Answer accuracy: ${(answerAccuracy * 100).toFixed(1)}%`);
 
-  console.log(`Retrieval hit rate: ${(retrievalHitRate * 100).toFixed(1)}%`);
+  console.log(`Hit@1: ${(hitAt1Rate * 100).toFixed(1)}%`);
+
+  console.log(`Hit@3: ${(hitAt3Rate * 100).toFixed(1)}%`);
+
+  console.log(`Recall@3: ${(meanRecallAt3 * 100).toFixed(1)}%`);
+
+  console.log(`MRR: ${mrr.toFixed(3)}`);
 
   console.log(`Grounding pass rate: ${(groundingRate * 100).toFixed(1)}%`);
 
   console.log(`Abstention accuracy: ${(abstentionAccuracy * 100).toFixed(1)}%`);
+
+  console.log(`Citation validity: ${(groundingRate * 100).toFixed(1)}%`);
+
+  console.log(`Abstention recall: ${(abstentionAccuracy * 100).toFixed(1)}%`);
 }
 
 main()

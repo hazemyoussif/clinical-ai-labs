@@ -16,7 +16,7 @@ export async function answerQuestion(
   question: string,
   trialId?: string,
 ): Promise<RagResult> {
-  const chunks = await retrieve(question, trialId, 4);
+  const chunks = await retrieve(question, trialId, 3);
 
   if (chunks.length === 0) {
     return {

@@ -7,7 +7,7 @@ export type EvalCase = {
 
   expectedAnswer: "YES" | "NO" | "INSUFFICIENT_INFORMATION";
 
-  expectedHeading?: string;
+  expectedHeading?: string[];
 };
 
 export const evalCases: EvalCase[] = [
@@ -21,7 +21,7 @@ export const evalCases: EvalCase[] = [
 
     expectedAnswer: "NO",
 
-    expectedHeading: "Exclusion Criteria",
+    expectedHeading: ["Exclusion Criteria"],
   },
 
   {
@@ -33,7 +33,7 @@ export const evalCases: EvalCase[] = [
 
     expectedAnswer: "NO",
 
-    expectedHeading: "Exclusion Criteria",
+    expectedHeading: ["Exclusion Criteria"],
   },
 
   {
@@ -45,7 +45,7 @@ export const evalCases: EvalCase[] = [
 
     expectedAnswer: "NO",
 
-    expectedHeading: "Inclusion Criteria",
+    expectedHeading: ["Inclusion Criteria"],
   },
 
   {
@@ -78,7 +78,7 @@ export const evalCases: EvalCase[] = [
 
     expectedAnswer: "INSUFFICIENT_INFORMATION",
 
-    expectedHeading: "Inclusion Criteria",
+    expectedHeading: ["Inclusion Criteria","Exclusion Criteria"],
   },
 
   {
@@ -90,7 +90,7 @@ export const evalCases: EvalCase[] = [
 
     expectedAnswer: "YES",
 
-    expectedHeading: "General Information",
+    expectedHeading: ["General Information"],
   },
 
   {
@@ -102,6 +102,6 @@ export const evalCases: EvalCase[] = [
 
     expectedAnswer: "YES",
 
-    expectedHeading: "Trial Sites",
+    expectedHeading: ["Trial Sites"],
   },
 ];
