@@ -2,13 +2,14 @@ import { llm, LLM_MODEL } from "../../shared/llm.js";
 
 import { retrieve, type RetrievedChunk } from "./retrieval.js";
 
-import { buildContext } from "./context.js";
+import { buildContext, prepareEvidence, type Evidence } from "./context.js";
 
 import { RagAnswerSchema, type RagAnswer } from "./answer-schema.js";
 
 export type RagResult = {
   answer: RagAnswer;
   chunks: RetrievedChunk[];
+  evidence: Evidence[];
 };
 
 export async function answerQuestion(
@@ -24,18 +25,23 @@ export async function answerQuestion(
 
         explanation: "No relevant information was retrieved.",
 
-        evidence: [],
+        evidenceIds: [],
       },
 
       chunks,
+      evidence: [],
     };
   }
 
-  const context = buildContext(chunks);
+ const evidence =
+  prepareEvidence(chunks);
+
+const context =
+  buildContext(evidence);
 
   const response = await llm.responses.create({
     model: LLM_MODEL,
-
+    temperature: 0,
     instructions: `
 You are a clinical-trial information assistant.
 
@@ -88,8 +94,15 @@ then "Is CARDIO-101 a hypertension trial?" can be YES.
 5. Every YES or NO answer must be supported by evidence
 from the supplied context.
 
-6. Evidence quotes must be copied directly from the
-supplied context. Do not invent evidence.
+- Every YES or NO answer must reference the evidence
+  that supports it using evidenceIds.
+
+- Only use evidence IDs that appear in the supplied
+  context, such as E1, E2, E3.
+
+- Do not invent evidence IDs.
+
+- For INSUFFICIENT_INFORMATION, evidenceIds may be empty.
 
 DECISION PROCEDURE:
 
@@ -234,13 +247,7 @@ Return valid JSON only using the required schema.
 {
   "answer": "YES" | "NO" | "INSUFFICIENT_INFORMATION",
   "explanation": "string",
-  "evidence": [
-    {
-      "document": "string",
-      "section": "string",
-      "quote": "exact quote from context"
-    }
-  ]
+  "evidenceIds": ["E1"]
 }
       `.trim(),
 
@@ -268,5 +275,6 @@ ${question}
   return {
     answer,
     chunks,
+    evidence,
   };
 }

@@ -1,10 +1,6 @@
 import type { RagAnswer } from "./answer-schema.js";
 
-import type { RetrievedChunk } from "./retrieval.js";
-
-function normalize(value: string): string {
-  return value.toLowerCase().replace(/\s+/g, " ").trim();
-}
+import type { Evidence } from "./context.js";
 
 export type GroundingResult = {
   valid: boolean;
@@ -13,7 +9,7 @@ export type GroundingResult = {
 
 export function validateGrounding(
   answer: RagAnswer,
-  chunks: RetrievedChunk[],
+  evidence: Evidence[],
 ): GroundingResult {
   const reasons: string[] = [];
 
@@ -24,34 +20,18 @@ export function validateGrounding(
     };
   }
 
-  if (answer.evidence.length === 0) {
+  if (answer.evidenceIds.length === 0) {
     return {
       valid: false,
       reasons: ["Conclusion has no supporting evidence."],
     };
   }
 
-  for (const evidence of answer.evidence) {
-    const source = chunks.find(
-      (chunk) =>
-        chunk.documentTitle === evidence.document &&
-        chunk.heading === evidence.section,
-    );
+  const availableIds = new Set(evidence.map((item) => item.id));
 
-    if (!source) {
-      reasons.push(
-        `Source not retrieved: ${evidence.document} / ${evidence.section}`,
-      );
-
-      continue;
-    }
-
-    const quoteExists = normalize(source.content).includes(
-      normalize(evidence.quote),
-    );
-
-    if (!quoteExists) {
-      reasons.push(`Quote does not exist in source: "${evidence.quote}"`);
+  for (const evidenceId of answer.evidenceIds) {
+    if (!availableIds.has(evidenceId)) {
+      reasons.push(`Evidence ID was not supplied to the model: ${evidenceId}`);
     }
   }
 

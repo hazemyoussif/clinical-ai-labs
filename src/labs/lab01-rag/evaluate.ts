@@ -33,6 +33,12 @@ async function evaluateCase(
 
   try {
     const result = await answerQuestion(testCase.question, testCase.trialId);
+    //grounding validation
+    console.log({
+      test: testCase.name,
+      answer: result.answer.answer,
+      evidence: result.answer.evidenceIds,
+    });
 
     const latencyMs = performance.now() - startedAt;
 
@@ -42,7 +48,7 @@ async function evaluateCase(
         )
       : null;
 
-    const grounding = validateGrounding(result.answer, result.chunks);
+    const grounding = validateGrounding(result.answer, result.evidence);
 
     return {
       name: testCase.name,
