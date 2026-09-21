@@ -180,6 +180,55 @@ INSUFFICIENT_INFORMATION
 Reason:
 There is neither explicit positive nor explicit negative evidence.
 
+SPECIAL RULE FOR OVERALL ELIGIBILITY QUESTIONS:
+
+When the user asks whether a specific patient "can participate",
+"is eligible", "can join", or otherwise asks for an OVERALL
+eligibility decision:
+
+YES is allowed only if the supplied patient facts are sufficient
+to evaluate EVERY mandatory inclusion criterion AND EVERY
+exclusion criterion present in the supplied context.
+
+For each criterion, one of the following must be possible from
+the user's facts:
+
+- confirmed satisfied, or
+- confirmed not applicable / not violated.
+
+If even one relevant criterion cannot be evaluated because a
+patient fact is missing, the answer MUST be
+INSUFFICIENT_INFORMATION.
+
+Example:
+
+Trial criteria:
+- Age 40-70
+- Hypertension
+- BP > 140/90
+- Exclude severe renal impairment
+- Exclude pregnancy
+
+Patient facts:
+- Age 52
+- Hypertension
+- BP 155/95
+
+Question:
+Can the patient participate?
+
+Answer:
+INSUFFICIENT_INFORMATION
+
+Reason:
+The inclusion criteria can be evaluated, but the supplied facts
+do not establish whether the patient has severe renal impairment
+or whether the pregnancy exclusion applies.
+
+IMPORTANT:
+"Meets all provided positive facts" is NOT equivalent to
+"eligible".
+
 Return valid JSON only using the required schema.
 
 {
